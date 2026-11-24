@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.engine import Connection, RowMapping
+from sqlalchemy.sql import Select
 
 from .models import CaptureSession, MotorImage, MotorModel, MotorUnit, ValidationStatus
 from .schema import capture_sessions, motor_images, motor_models, motor_units
@@ -16,6 +17,33 @@ def _model_from_row(row: RowMapping) -> MotorModel:
         commercial_model=row["commercial_model"],
         source_reference=row["source_reference"],
         technical_specs=row["technical_specs"],
+    )
+
+
+def _image_from_row(row: RowMapping) -> MotorImage:
+    registered_at = row["registered_at"]
+    # O SQLite devolve o valor sem fuso. A gravação sempre usa UTC.
+    if registered_at.tzinfo is None:
+        registered_at = registered_at.replace(tzinfo=UTC)
+    return MotorImage(
+        image_id=row["image_id"],
+        path=Path(row["path"]),
+        unit=MotorUnit(row["unit_id"], _model_from_row(row)),
+        session=CaptureSession(row["session_id"]),
+        origin=row["origin"],
+        registered_at=registered_at.astimezone(UTC),
+        capture_angle_deg=row["capture_angle_deg"],
+        validation_status=ValidationStatus(row["validation_status"]),
+        sha256=row["sha256"],
+        original_filename=row["original_filename"],
+    )
+
+
+def _select_images() -> Select:
+    return (
+        select(motor_images, motor_models)
+        .join_from(motor_images, motor_units)
+        .join_from(motor_units, motor_models)
     )
 
 
@@ -87,28 +115,10 @@ class MotorRepository:
         return self.connection.execute(statement).scalar_one_or_none()
 
     def get_image(self, image_id: str) -> MotorImage | None:
-        statement = (
-            select(motor_images, motor_models)
-            .join_from(motor_images, motor_units)
-            .join_from(motor_units, motor_models)
-            .where(motor_images.c.image_id == image_id)
-        )
+        statement = _select_images().where(motor_images.c.image_id == image_id)
         row = self.connection.execute(statement).mappings().one_or_none()
-        if row is None:
-            return None
-        registered_at = row["registered_at"]
-        # O SQLite devolve o valor sem fuso. A gravação sempre usa UTC.
-        if registered_at.tzinfo is None:
-            registered_at = registered_at.replace(tzinfo=UTC)
-        return MotorImage(
-            image_id=row["image_id"],
-            path=Path(row["path"]),
-            unit=MotorUnit(row["unit_id"], _model_from_row(row)),
-            session=CaptureSession(row["session_id"]),
-            origin=row["origin"],
-            registered_at=registered_at.astimezone(UTC),
-            capture_angle_deg=row["capture_angle_deg"],
-            validation_status=ValidationStatus(row["validation_status"]),
-            sha256=row["sha256"],
-            original_filename=row["original_filename"],
-        )
+        return _image_from_row(row) if row is not None else None
+
+    def list_images(self) -> list[MotorImage]:
+        statement = _select_images().order_by(motor_images.c.image_id)
+        return [_image_from_row(row) for row in self.connection.execute(statement).mappings()]

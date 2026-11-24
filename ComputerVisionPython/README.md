@@ -147,3 +147,26 @@ O relatório tem caminhos relativos à pasta analisada. Abra os arquivos sinaliz
 A resolução recebe `low_resolution` quando o menor lado tem menos que `--min-side` pixels (padrão 640). A nitidez recebe `low_sharpness` quando a variância do Laplaciano fica abaixo de `--min-sharpness` (padrão 100). O Laplaciano mede diferenças locais de intensidade. Sua variância costuma cair quando o desfoque suaviza bordas. A métrica usa tons de cinza, limita o maior lado a 512 pixels sem ampliar e registra `null` se a imagem resultante for pequena demais para a janela de 3 × 3 pixels.
 
 Os limites são iniciais e servem para triagem. Textura, ruído e iluminação também afetam a métrica. O relatório preserva as fotos e seus status no catálogo. Pastas e arquivos iniciados por ponto, incluindo os temporários do importador, são ignorados. Rode a análise com a pasta estável para reproduzir o resultado.
+
+## Exportação do dataset de classificação
+
+Na pasta `ComputerVisionPython`, com o catálogo migrado e as fotos aprovadas no armazenamento, execute:
+
+```powershell
+.\.venv\Scripts\python.exe -m mfi_cv.data.classification_dataset --source .\dataset\raw --output .\dataset\classification --seed 42
+$manifesto = Get-Content .\dataset\classification\manifest.json -Raw -Encoding UTF8 | ConvertFrom-Json
+$manifesto.classes | ConvertTo-Json -Depth 5
+$manifesto.warnings
+```
+
+O comando lê o banco definido por `MFI_DATABASE_URL` ou o SQLite local. A saída deve ser uma pasta nova. Para verificar a repetibilidade, execute com a mesma seed e outra pasta de saída, com catálogo e arquivos estáveis, e compare o SHA-256 dos dois manifestos com `Get-FileHash`.
+
+O manifesto mapeia as pastas de classe aos IDs comerciais e registra origem, hash, exemplar, sessão e partição de cada arquivo exportado. O exportador mantém juntos os registros ligados por exemplar, sessão ou SHA-256, inclusive por vínculos transitivos. Vínculos do catálogo podem incluir fotos pendentes ou rejeitadas. Somente as aprovadas são copiadas.
+
+A divisão reserva treino para cada classe e tenta alocar cerca de 15% dos grupos por classe para validação e 15% para teste, priorizando cobertura em ambas. Os percentuais são metas para grupos, e a quantidade de fotos pode variar entre partições. Consulte `missing_splits` e `warnings` antes de usar o dataset para avaliação. Classes sem fotos aprovadas ficam fora da exportação. Se nenhuma foto estiver aprovada, o comando termina com erro e a saída não é publicada.
+
+Para verificar o fluxo com dados sintéticos, sem alterar o catálogo local, execute:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_classification_dataset.py
+```
