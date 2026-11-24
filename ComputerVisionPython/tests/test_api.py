@@ -88,7 +88,11 @@ def test_serves_catalog_inference_and_openapi(api_checkpoint: Path, database: En
                 assert prediction["status"] in {"unknown", "accepted", "needs_confirmation"}
 
             schema = (await client.get("/openapi.json")).json()
-            assert set(schema["paths"]) == {"/health", "/models", "/predict", "/motors/{motor_id}"}
+            assert set(schema["paths"]) == {
+                "/health", "/models", "/predict", "/motors", "/motors/{motor_id}",
+            }
+            catalog_schema = schema["paths"]["/motors"]["get"]["responses"]["200"]["content"]
+            assert catalog_schema["application/json"]["schema"]["type"] == "array"
             upload = schema["paths"]["/predict"]["post"]["requestBody"]["content"]
             assert set(upload) == set(api.IMAGE_MEDIA_TYPES)
             assert all(entry["schema"]["format"] == "binary" for entry in upload.values())
@@ -154,9 +158,64 @@ def test_reports_unavailable_dependencies(tmp_path: Path, database: Engine) -> N
             transport=httpx.ASGITransport(app=without_catalog), base_url="http://test",
         ) as client:
             assert (await client.get("/health")).json()["catalog_ready"] is False
+            assert (await client.get("/motors")).status_code == 503
             assert (await client.get("/motors/demo%2Fa")).status_code == 503
 
     try:
         asyncio.run(check())
     finally:
         empty.dispose()
+
+
+def test_lists_catalog_with_no_checkpoint(database: Engine, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MFI_CHECKPOINT", raising=False)
+    with database.begin() as connection:
+        MotorRepository(connection).add_model(MotorModel(
+            "demo-0", "Outro fabricante fictício", "Linha fictícia", "Outro modelo fictício",
+            "Fonte fictícia para testes",
+        ))
+    app = api.create_app(database=database)
+
+    async def check() -> None:
+        async with app.router.lifespan_context(app), httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test",
+        ) as client:
+            assert (await client.get("/models")).status_code == 503
+            response = await client.get("/motors")
+            assert response.status_code == 200
+            assert response.json() == [
+                {
+                    "model_id": "demo-0",
+                    "manufacturer": "Outro fabricante fictício",
+                    "product_line": "Linha fictícia",
+                    "commercial_model": "Outro modelo fictício",
+                },
+                {
+                    "model_id": "demo/a",
+                    "manufacturer": "Fabricante fictício",
+                    "product_line": "Linha fictícia",
+                    "commercial_model": "Modelo fictício",
+                },
+            ]
+
+    asyncio.run(check())
+
+
+def test_lists_empty_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MFI_CHECKPOINT", raising=False)
+    database = create_database_engine(f"sqlite:///{(tmp_path / 'empty-catalog.sqlite3').as_posix()}")
+    metadata.create_all(database)
+    app = api.create_app(database=database)
+
+    async def check() -> None:
+        async with app.router.lifespan_context(app), httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test",
+        ) as client:
+            response = await client.get("/motors")
+            assert response.status_code == 200
+            assert response.json() == []
+
+    try:
+        asyncio.run(check())
+    finally:
+        database.dispose()

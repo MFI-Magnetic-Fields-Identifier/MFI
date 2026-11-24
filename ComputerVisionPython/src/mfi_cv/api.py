@@ -47,13 +47,16 @@ class PredictionResponse(BaseModel):
     status: PredictionStatus
 
 
-class MotorResponse(BaseModel):
+class MotorSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     model_id: str
     manufacturer: str
     product_line: str
     commercial_model: str
+
+
+class MotorResponse(MotorSummaryResponse):
     source_reference: str
     technical_specs: dict[str, str | int | float]
 
@@ -179,6 +182,19 @@ def create_app(*, checkpoint: Path | None = None, database: Engine | None = None
         with BytesIO() as file:
             await _read_upload(request, file)
             return await run_in_threadpool(_predict_upload, classifier, file, expected_format)
+
+    @application.get(
+        "/motors",
+        responses={503: {"model": ErrorResponse, "description": "Catálogo indisponível"}},
+        description="Lista os modelos comerciais cadastrados, em ordem de ID.",
+    )
+    def motors() -> list[MotorSummaryResponse]:
+        try:
+            with application.state.engine.connect() as connection:
+                models = MotorRepository(connection).list_models()
+        except SQLAlchemyError as error:
+            raise HTTPException(503, "Catálogo indisponível.") from error
+        return [MotorSummaryResponse.model_validate(model) for model in models]
 
     @application.get("/motors/{motor_id:path}", responses={
         404: {"model": ErrorResponse}, 503: {"model": ErrorResponse},

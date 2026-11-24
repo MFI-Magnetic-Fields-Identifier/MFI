@@ -11,6 +11,7 @@ O último marco de produção de código antes da mudança de arquitetura foi a 
 | 4.1–4.3 | MobileNetV3 Small por transferência de aprendizado, variações opcionais no treino e inferência Top-K com pedido de confirmação e estado `unknown`. |
 | 5.1–5.2 | Avaliação em partição reservada e análise de erros por classe e condição de captura. |
 | 6.1 | FastAPI com `GET /health`, `GET /models`, `GET /motors/{motor_id}` e `POST /predict`. |
+| 6.2 Web | `GET /motors` lista os modelos comerciais cadastrados para seleção manual, sem exigir checkpoint. |
 
 O módulo Python continua em `ComputerVisionPython/`. Seus comandos, testes, migrações e artefatos locais já usam esse caminho. Uma futura mudança para `services/computer-vision/` poderá ser avaliada quando houver necessidade concreta. A pasta `apps/web/` é o destino sugerido para o frontend quando ele for criado.
 
@@ -45,8 +46,7 @@ Cada linha é uma entrega independente. Verifique o estado do repositório antes
 
 | Microetapa | Entrega e critério de conclusão |
 |---|---|
-| **6.2 Web — Listar motores no catálogo** | Implementar somente `GET /motors` com o catálogo existente. Responder com os dados necessários à seleção manual, testar a listagem e o catálogo vazio e atualizar o OpenAPI. A rota deve funcionar com a persistência local e sem checkpoint. |
-| 6.3 Web — Criar a seleção manual de perfis | Preparar a base React, TypeScript e Vite necessária para abrir uma tela de seleção que carregue perfis JSON de demonstração sem depender do backend. |
+| **6.3 Web — Criar a seleção manual de perfis** | Preparar a base React, TypeScript e Vite necessária para abrir uma tela de seleção que carregue perfis JSON de demonstração sem depender do backend. |
 | 6.4 Web — Enviar fotografia e apresentar candidatos | Reutilizar `POST /predict`. Testar seleção de arquivo, estado de processamento, erros e exibição de IDs, pontuações e necessidade de confirmação. Avaliar proxy de desenvolvimento ou CORS conforme a execução escolhida. |
 | 6.5 Web — Confirmar identificação e carregar perfil | Integrar a lista do catálogo por `GET /motors` e consultar `GET /motors/{id}` após seleção de um registro ou confirmação de um candidato. Tratar IDs ausentes e resultados desconhecidos. A seleção manual por JSON continua disponível sem a API. |
 
@@ -76,4 +76,4 @@ A interface deve identificar o campo do modelo analítico e a escala relativa. S
 
 ## 4. Próxima etapa autorizável
 
-**6.2 Web — Listar motores no catálogo.** A consulta por ID e a previsão já funcionam. A listagem é a lacuna de API para a seleção manual. Esta microetapa envolve o repositório Python, FastAPI e testes. A base React será tratada em uma microetapa própria.
+**6.3 Web — Criar a seleção manual de perfis.** A primeira tela React deve carregar perfis JSON identificados como demonstração e permitir selecionar um deles com o backend desligado. O upload e a simulação entram em microetapas próprias.

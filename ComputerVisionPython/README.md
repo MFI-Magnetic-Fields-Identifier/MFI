@@ -304,7 +304,13 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType '
     ConvertTo-Json -Depth 4
 ```
 
-`GET /health` retorna 200 quando o classificador e o catálogo estão disponíveis, ou 503 com o estado de ambos. `GET /models` lista os IDs de classe do checkpoint e indica se ele é sintético. `GET /motors/{motor_id}` consulta as especificações do modelo comercial cadastrado e retorna 404 para um ID ausente. Para montar a URL, codifique o ID com `[uri]::EscapeDataString($id)`.
+`GET /health` retorna 200 quando o classificador e o catálogo estão disponíveis, ou 503 com o estado de ambos. `GET /models` lista os IDs de classe do checkpoint e indica se ele é sintético. `GET /motors` retorna uma lista ordenada por `model_id`, com `model_id`, `manufacturer`, `product_line` e `commercial_model` para seleção manual. Um catálogo vazio retorna `[]` com HTTP 200. As consultas ao catálogo funcionam sem carregar um checkpoint e retornam HTTP 503 se o banco estiver indisponível.
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/motors
+```
+
+`GET /motors/{motor_id}` consulta as especificações do modelo comercial cadastrado e retorna 404 para um ID ausente. Para montar a URL, codifique o ID com `[uri]::EscapeDataString($id)`.
 
 `POST /predict` recebe os bytes da foto no corpo, com `Content-Type` igual a `image/jpeg`, `image/png` ou `image/webp`. O limite é 8 MiB e 24 megapixels. O JSON de sucesso contém `candidates` e `status`. Respostas de erro do endpoint usam `detail`, incluindo 400 para foto inválida, 413 para tamanho excessivo, 415 para tipo incompatível e 503 quando o classificador está indisponível.
 

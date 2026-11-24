@@ -68,6 +68,10 @@ class MotorRepository:
         row = self.connection.execute(statement).mappings().one_or_none()
         return _model_from_row(row) if row is not None else None
 
+    def list_models(self) -> list[MotorModel]:
+        statement = select(motor_models).order_by(motor_models.c.model_id)
+        return [_model_from_row(row) for row in self.connection.execute(statement).mappings()]
+
     def add_unit(self, unit: MotorUnit) -> None:
         self.connection.execute(motor_units.insert().values(
             unit_id=unit.unit_id, model_id=unit.model.model_id,
