@@ -310,7 +310,9 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType '
 
 Com o servidor ativo, a documentação interativa fica em `http://127.0.0.1:8000/docs` e o contrato OpenAPI em `http://127.0.0.1:8000/openapi.json`.
 
-## Enviar uma foto de teste pelo Unity
+## Histórico da integração Unity
+
+O teste abaixo documenta a antiga etapa 6.2 e o cliente C# registrado em `9783da8`. Para o desenvolvimento atual, siga o [roadmap da aplicação web](../docs/ROADMAP.md).
 
 Inicie a API em `127.0.0.1:8000` conforme a seção anterior. Em outro PowerShell, na raiz do projeto Unity, copie um PNG sintético para um asset de teste com a extensão `.bytes`. O Unity importa esse arquivo como `TextAsset` e mantém os bytes originais.
 
