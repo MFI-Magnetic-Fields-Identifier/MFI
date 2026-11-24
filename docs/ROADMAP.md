@@ -13,6 +13,7 @@ O último marco de produção de código antes da mudança de arquitetura foi a 
 | 6.1 | FastAPI com `GET /health`, `GET /models`, `GET /motors/{motor_id}` e `POST /predict`. |
 | 6.2 Web | `GET /motors` lista os modelos comerciais cadastrados para seleção manual, sem exigir checkpoint. |
 | 6.3 Web | Tela de seleção manual com perfis JSON de demonstração, disponível com o backend desligado. |
+| 6.4 Web | Upload de foto para `POST /predict`, com estado de processamento, candidatos, pontuações e tratamento de erros. |
 
 O módulo Python continua em `ComputerVisionPython/`. Seus comandos, testes, migrações e artefatos locais já usam esse caminho. Uma futura mudança para `services/computer-vision/` poderá ser avaliada quando houver necessidade concreta.
 
@@ -47,8 +48,7 @@ Cada linha é uma entrega independente. Verifique o estado do repositório antes
 
 | Microetapa | Entrega e critério de conclusão |
 |---|---|
-| **6.4 Web — Enviar fotografia e apresentar candidatos** | Reutilizar `POST /predict`. Testar seleção de arquivo, estado de processamento, erros e exibição de IDs, pontuações e necessidade de confirmação. Avaliar proxy de desenvolvimento ou CORS conforme a execução escolhida. |
-| 6.5 Web — Confirmar identificação e carregar perfil | Integrar a lista do catálogo por `GET /motors` e consultar `GET /motors/{id}` após seleção de um registro ou confirmação de um candidato. Tratar IDs ausentes e resultados desconhecidos. A seleção manual por JSON continua disponível sem a API. |
+| **6.5 Web — Confirmar identificação e carregar perfil** | Integrar a lista do catálogo por `GET /motors` e consultar `GET /motors/{id}` após seleção de um registro ou confirmação de um candidato. Tratar IDs ausentes e resultados desconhecidos. A seleção manual por JSON continua disponível sem a API. |
 
 ### Fase 7 — Simulação eletromagnética no navegador
 
@@ -76,4 +76,4 @@ A interface deve identificar o campo do modelo analítico e a escala relativa. S
 
 ## 4. Próxima etapa autorizável
 
-**6.4 Web — Enviar fotografia e apresentar candidatos.** Integrar a seleção de um arquivo à rota real `POST /predict` e exibir seus estados e pontuações. A confirmação e a consulta de detalhes entram na microetapa seguinte.
+**6.5 Web — Confirmar identificação e carregar perfil.** Integrar o catálogo HTTP à seleção manual e permitir consultar o perfil de um candidato confirmado pelo usuário.

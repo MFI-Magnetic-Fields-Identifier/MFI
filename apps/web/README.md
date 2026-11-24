@@ -1,4 +1,4 @@
-# MFI — Seleção manual de motores
+# MFI — Seleção e identificação de motores
 
 A tela usa o catálogo JSON em `src/profiles.json`. Os perfis monofásico e trifásico contêm valores ilustrativos de frequência, fases e polos.
 
@@ -23,3 +23,18 @@ npm.cmd run build
 ```
 
 Esse comando verifica os tipos TypeScript e gera a versão estática em `dist/`.
+
+## Identificar por foto
+
+Em outro PowerShell, na raiz do repositório, inicie a API. O exemplo usa o checkpoint sintético gerado na etapa 4.1:
+
+```powershell
+Set-Location .\ComputerVisionPython
+.\.venv\Scripts\python.exe -m alembic upgrade head
+$env:MFI_CHECKPOINT = (Resolve-Path .\models\demo-v1\best.pt).Path
+.\.venv\Scripts\python.exe -m uvicorn mfi_cv.api:app --host 127.0.0.1 --port 8000
+```
+
+No frontend, selecione um JPEG, PNG ou WebP de até 8 MiB e clique em **Enviar foto**. Para verificar a integração com dados sintéticos, escolha um PNG de `ComputerVisionPython/dataset/raw/`. A tela deve mostrar o estado da identificação e os candidatos `demo-*` com suas pontuações. Para verificar indisponibilidade, pare a API e envie a foto novamente. A seleção manual deve continuar funcionando.
+
+O Vite encaminha `POST /predict` para `http://127.0.0.1:8000` tanto em desenvolvimento quanto em preview. Se a API estiver em outra porta, defina `$env:MFI_API_TARGET` antes de iniciar o Vite. Ao servir `dist/` em outro servidor, configure o encaminhamento de `/predict` na mesma origem.

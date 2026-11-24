@@ -1,5 +1,6 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { PhotoIdentification } from './features/identification/PhotoIdentification'
 import profiles from './profiles.json'
 import './style.css'
 
@@ -68,6 +69,7 @@ function App() {
             )}
           </section>
         </div>
+        <PhotoIdentification />
       </main>
     </>
   )

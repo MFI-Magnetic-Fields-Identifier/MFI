@@ -156,8 +156,58 @@ h2 {
 .specs dd span { color: var(--muted); font-size: 1rem; }
 .note { padding: 1.1rem 1.7rem; line-height: 1.5; }
 
+.identification {
+  margin-top: 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 1.5rem 1.7rem;
+  background: #17252b;
+}
+
+.identification h2 { margin-top: 0; }
+
+.upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 1.15rem;
+}
+
+.upload-controls label { display: block; font-weight: 600; }
+
+.upload-controls input {
+  max-width: 100%;
+  margin: 0.45rem 0;
+  font: inherit;
+}
+
+.upload-controls button, .upload-controls input::file-selector-button {
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  color: inherit;
+  background: #22373e;
+  font: inherit;
+}
+
+.upload-controls button:not(:disabled) { cursor: pointer; color: #102823; background: var(--accent); }
+.upload-controls button:disabled { color: var(--muted); }
+.upload-controls :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+#photo-hint, .score-note { color: var(--muted); font-size: 0.875rem; }
+
+.upload-feedback { margin-top: 1.2rem; }
+.upload-error { color: #ffc0b9; }
+.prediction-status { color: var(--accent); font-weight: 600; }
+
+.candidates { margin-block: 0.55rem; padding-left: 1.6rem; max-width: 38rem; }
+.candidates li { padding: 0.4rem 0; overflow-wrap: anywhere; }
+.candidates strong { margin-left: 0.75rem; font-variant-numeric: tabular-nums; }
+
 @media (max-width: 46rem) {
   .shell { width: calc(100% - 2rem); }
   .catalog { grid-template-columns: minmax(0, 1fr); }
   .specs, .details-heading, .note { padding-inline: 1rem; }
+  .identification { padding-inline: 1rem; }
 }
