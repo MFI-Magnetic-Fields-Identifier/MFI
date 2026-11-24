@@ -87,7 +87,8 @@ def train(
     if requested_device == "auto":
         requested_device = "cuda" if has_cuda else "cpu"
     device = torch.device(requested_device)
-    labels, samples, manifest_hash = read_dataset(root.resolve())
+    dataset = read_dataset(root.resolve())
+    labels, samples = dataset.labels, dataset.samples
     torch.manual_seed(seed)
     train_loader = DataLoader(
         TrainingPhotos(samples["train"], size, augmentation_rng=Random(seed) if augment else None),
@@ -107,7 +108,8 @@ def train(
         "epochs": epochs, "batch_size": batch_size, "learning_rate": learning_rate,
         "seed": seed, "device": str(device), "cuda_available": has_cuda, "class_ids": labels,
         "torch_version": str(torch.__version__), "torchvision_version": str(torchvision.__version__),
-        "manifest_sha256": manifest_hash, "image_counts": {key: len(value) for key, value in samples.items()},
+        "manifest_sha256": dataset.manifest_sha256,
+        "image_counts": {key: len(value) for key, value in samples.items()},
         "augmentation": {
             "enabled": augment, "rotation_degrees": ROTATION_DEGREES,
             "brightness_range": list(BRIGHTNESS_RANGE), "scale_range": list(SCALE_RANGE),

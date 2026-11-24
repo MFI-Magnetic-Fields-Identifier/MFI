@@ -1,13 +1,10 @@
-import argparse
-import json
-from hashlib import file_digest
 from pathlib import Path
 from statistics import mean, median
-from tempfile import TemporaryDirectory
 from time import perf_counter_ns
 
-from .classifier_dataset import make_demo_dataset, read_dataset
-from .motor_classifier import ModelUnavailableError, MotorClassifier
+from .classifier_dataset import read_test_dataset
+from .classifier_report import write_test_report
+from .motor_classifier import MotorClassifier
 
 
 def _classification_metrics(
@@ -47,12 +44,8 @@ def _classification_metrics(
 
 def evaluate(classifier: MotorClassifier, root: Path) -> dict[str, object]:
     """Avalia o conjunto de teste reservado, sem abrir as imagens de treino ou validação."""
-    labels, samples, manifest_hash = read_dataset(root.resolve(), verify_splits=("test",))
-    if classifier.manifest_sha256 != manifest_hash or classifier.class_ids != tuple(labels):
-        raise ValueError("O manifesto ou a ordem das classes difere do checkpoint treinado.")
-    test_samples = samples["test"]
-    if not test_samples:
-        raise ValueError("A partição de teste está vazia.")
+    dataset = read_test_dataset(root, classifier.class_ids, classifier.manifest_sha256)
+    labels, test_samples = dataset.labels, dataset.samples["test"]
 
     indices = {label: index for index, label in enumerate(labels)}
     matrix = [[0] * len(labels) for _ in labels]
@@ -79,7 +72,7 @@ def evaluate(classifier: MotorClassifier, root: Path) -> dict[str, object]:
 
     return {
         "demo": classifier.is_demo,
-        "manifest_sha256": manifest_hash,
+        "manifest_sha256": dataset.manifest_sha256,
         "split": "test",
         "image_count": len(test_samples),
         "metrics": _classification_metrics(labels, matrix, top5_hits),
@@ -94,33 +87,7 @@ def evaluate(classifier: MotorClassifier, root: Path) -> dict[str, object]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Avalia o classificador no conjunto de teste reservado.")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--dataset", type=Path)
-    source.add_argument("--demo", action="store_true")
-    parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    try:
-        classifier = MotorClassifier(args.checkpoint)
-        if args.demo != classifier.is_demo:
-            raise ValueError("Use --demo com checkpoints sintéticos e --dataset com checkpoints reais.")
-        if args.demo:
-            with TemporaryDirectory(prefix="mfi-evaluation-demo-") as temp:
-                root = Path(temp)
-                make_demo_dataset(root)
-                report = evaluate(classifier, root)
-        else:
-            report = evaluate(classifier, args.dataset)
-        with args.checkpoint.open("rb") as checkpoint:
-            report["checkpoint_sha256"] = file_digest(checkpoint, "sha256").hexdigest()
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        with args.output.open("x", encoding="utf-8", newline="\n") as output:
-            json.dump(report, output, indent=2, ensure_ascii=False)
-            output.write("\n")
-    except (OSError, ValueError, ModelUnavailableError, KeyError, TypeError) as error:
-        parser.exit(1, f"Erro na avaliação: {error}\n")
-    print(args.output)
+    report = write_test_report("Avalia o classificador no conjunto de teste reservado.", evaluate)
     for warning in report["warnings"]:
         print(f"Aviso: {warning}")
 

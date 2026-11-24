@@ -164,6 +164,7 @@ def export_classification_dataset(
                     "source_path": image.path.as_posix(),
                     "original_filename": image.original_filename,
                     "origin": image.origin,
+                    "capture_angle_deg": image.capture_angle_deg,
                     "sha256": digest,
                 })
 

@@ -16,7 +16,8 @@ def test_uses_manifest_labels_and_test_images_stay_unread(tmp_path: Path) -> Non
     for path in (tmp_path / "test").rglob("*.png"):
         path.unlink()
 
-    labels, samples, digest = read_dataset(tmp_path)
+    dataset = read_dataset(tmp_path)
+    labels, samples, digest = dataset.labels, dataset.samples, dataset.manifest_sha256
 
     assert labels == ["demo-elipse", "demo-retangulo"]
     assert {split: len(items) for split, items in samples.items()} == {"train": 2, "val": 2, "test": 2}
@@ -52,7 +53,7 @@ def test_rejects_invalid_training_dataset(tmp_path: Path, field: str, expected: 
 
 def test_augmentation_is_opt_in_for_training_samples(tmp_path: Path) -> None:
     make_demo_dataset(tmp_path)
-    _, samples, _ = read_dataset(tmp_path)
+    samples = read_dataset(tmp_path).samples
     baseline = TrainingPhotos(samples["train"], 64)
     varied = TrainingPhotos(samples["train"], 64, augmentation_rng=Random(42))
     validation = TrainingPhotos(samples["val"], 64)

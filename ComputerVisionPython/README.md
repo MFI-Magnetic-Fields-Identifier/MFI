@@ -266,3 +266,19 @@ Get-Content .\models\demo-v1\avaliacao.json -Raw -Encoding UTF8
 Para avaliar um checkpoint real, substitua `--demo` por `--dataset .\dataset\classification` e indique o checkpoint correspondente. O avaliador confere a identidade do manifesto usado no treino, a separação por exemplar, sessão, grupo e hash e o SHA-256 das fotos de teste. O arquivo de saída deve ser novo.
 
 O relatório inclui acurácia Top-1 e Top-5 quando há pelo menos cinco classes, além de precisão, recall e F1 por modelo e suas médias macro quando todas as classes têm fotos de teste. As linhas da matriz de confusão representam classes reais e as colunas, classes preditas. As métricas de classificação usam a ordem das pontuações independentemente do status de confirmação. O tempo por foto inclui leitura, pré-processamento e previsão em CPU, incluindo a primeira chamada. Os resultados sintéticos verificam a execução e ficam identificados no relatório.
+
+## Análise dos erros de classificação
+
+Na pasta `ComputerVisionPython`, gere um relatório em um caminho novo:
+
+```powershell
+.\.venv\Scripts\python.exe -m mfi_cv.data.analyze_classifier_errors --demo --checkpoint .\models\demo-v1\best.pt --output .\models\demo-v1\analise-erros.json
+$analise = Get-Content .\models\demo-v1\analise-erros.json -Raw -Encoding UTF8 | ConvertFrom-Json
+$analise.totals
+$analise.confusions
+$analise.by_model | ConvertTo-Json -Depth 8
+```
+
+Para analisar fotos reais, use `--dataset .\dataset\classification` no lugar de `--demo`, com o checkpoint treinado no manifesto correspondente. Cada erro Top-1 ou pedido de revisão fica em `by_model`, com o caminho relativo ao dataset, os candidatos, o status e a condição registrada. Quando há um exemplo da classe predita na partição de teste, o relatório fornece seu caminho para comparação visual com a foto confundida. Ramos sem ocorrências podem ficar vazios.
+
+`by_angle` agrupa ângulos em intervalos de 90° e usa `unknown` quando o manifesto não informa o ângulo. Novas exportações incluem o ângulo disponível no catálogo. Preserve o manifesto original ao analisar um checkpoint existente. `by_brightness` usa o brilho médio em tons de cinza, com as faixas abaixo de 64, de 64 até menos de 192 e a partir de 192. Compare os erros junto das contagens de imagens. O brilho médio também depende da cor do motor, do fundo e da exposição, e a análise de `unknown` nestes dados cobre fotos de classes conhecidas.

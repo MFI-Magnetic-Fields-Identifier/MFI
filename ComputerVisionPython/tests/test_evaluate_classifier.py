@@ -39,7 +39,8 @@ def test_top5_and_coverage_limits() -> None:
 
 def test_evaluates_only_reserved_photos(tmp_path: Path) -> None:
     make_demo_dataset(tmp_path)
-    labels, _, digest = read_dataset(tmp_path)
+    dataset = read_dataset(tmp_path)
+    labels, digest = dataset.labels, dataset.manifest_sha256
     for split in ("train", "val"):
         for photo in (tmp_path / split).rglob("*.png"):
             photo.unlink()
@@ -74,7 +75,8 @@ def test_evaluates_only_reserved_photos(tmp_path: Path) -> None:
 )
 def test_rejects_invalid_evaluation_inputs(tmp_path: Path, change: str, message: str) -> None:
     make_demo_dataset(tmp_path)
-    labels, samples, digest = read_dataset(tmp_path)
+    dataset = read_dataset(tmp_path)
+    labels, samples, digest = dataset.labels, dataset.samples, dataset.manifest_sha256
     if change == "hash":
         samples["test"][0][0].write_bytes(b"imagem alterada para teste")
     elif change == "manifest":
@@ -84,7 +86,7 @@ def test_rejects_invalid_evaluation_inputs(tmp_path: Path, change: str, message:
         data = json.loads(path.read_text(encoding="utf-8"))
         data["images"] = [entry for entry in data["images"] if entry["split"] != "test"]
         path.write_text(json.dumps(data), encoding="utf-8")
-        _, _, digest = read_dataset(tmp_path)
+        digest = read_dataset(tmp_path).manifest_sha256
     classifier = SimpleNamespace(class_ids=tuple(labels), manifest_sha256=digest)
 
     with pytest.raises(ValueError, match=message):

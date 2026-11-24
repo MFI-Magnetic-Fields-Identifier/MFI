@@ -59,6 +59,7 @@ def _register_demo(engine: Engine, source: Path, records: list[tuple[str, str, s
             repository.add_image(MotorImage(
                 f"demo-{index:03d}", relative_path, units[unit_id], sessions[session_id],
                 "Imagem sintética para teste", datetime(2026, 1, 1, tzinfo=UTC),
+                capture_angle_deg=45.0,
                 validation_status=ValidationStatus.APPROVED if approved else ValidationStatus.PENDING,
             ))
 
@@ -91,6 +92,7 @@ def test_reproducible_export_keeps_related_records_together(
     assert by_image["demo-002"]["group_id"] == by_image["demo-003"]["group_id"]
     by_link = defaultdict(set)
     for item in manifest["images"]:
+        assert item["capture_angle_deg"] == 45.0
         for key in ("unit_id", "session_id"):
             by_link[key, item[key]].add(item["split"])
         assert (first.parent / item["path"]).read_bytes() == (source / item["source_path"]).read_bytes()
