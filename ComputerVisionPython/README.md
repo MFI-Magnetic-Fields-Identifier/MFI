@@ -184,3 +184,25 @@ $fotos = @(Get-ChildItem .\dataset\raw -Recurse -File -Include *.jpg,*.jpeg,*.pn
 Abra os arquivos `*-comparison.png` para ver lado a lado o original orientado, o redimensionado e, se solicitado, a comparação experimental de contraste. Os arquivos `*-processed.png` contêm a imagem RGB redimensionada. A operação preserva as proporções, centraliza a imagem com preenchimento cinza e corrige a orientação EXIF. Os arquivos de origem ficam disponíveis para revisão.
 
 A receita inicial para treino e inferência é a mesma. Use `prepare_image` para orientar, converter para RGB e redimensionar para o tamanho registrado com o modelo, e `normalize_rgb` para dividir os canais por 255. O resultado é um buffer contíguo de `float32` na ordem `(3, altura, largura)`. O PNG conserva os valores inteiros de 0 a 255 para inspeção. O ajuste experimental de contraste atua apenas na luminância antes do preenchimento e fica fora dessa receita, pois pode alterar detalhes visuais. Ao escolher o classificador, valide a transformação nativa da biblioteca e configure uma única passagem de redimensionamento e normalização, com a mesma receita na avaliação e na inferência.
+
+## Primeiro treinamento do classificador
+
+Na pasta `ComputerVisionPython`, instale o extra de treinamento. O primeiro treino precisa baixar os pesos oficiais ImageNet da MobileNetV3 Small. A variável abaixo guarda o cache na pasta `models/`, ignorada pelo Git.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e '.[test,training]'
+$env:TORCH_HOME = Join-Path (Get-Location) 'models/torch-cache'
+.\.venv\Scripts\python.exe -m mfi_cv.data.train_classifier --demo --output .\models\demo-v1 --epochs 1 --batch-size 2 --size 96 --device cpu
+Get-ChildItem .\models\demo-v1
+Get-Content .\models\demo-v1\metrics.jsonl
+```
+
+A demonstração usa figuras sintéticas para verificar a execução. Seus pesos e métricas servem apenas para esse teste. Para treinar com um dataset real exportado pela etapa anterior, use:
+
+```powershell
+.\.venv\Scripts\python.exe -m mfi_cv.data.train_classifier --dataset .\dataset\classification --output .\models\baseline-v1 --epochs 10 --batch-size 8 --size 224 --seed 42 --device auto
+```
+
+A pasta de saída deve ser nova. O comando exige pelo menos duas classes e cobertura de todas em treino e validação. As imagens de teste ficam reservadas para avaliação posterior. `auto` usa CUDA se o PyTorch estiver instalado com esse suporte e detectar uma GPU compatível. Caso contrário, usa CPU.
+
+A MobileNetV3 Small usa pesos `IMAGENET1K_V1` e treina apenas a camada linear final. A receita da etapa anterior é seguida pela padronização ImageNet dos canais com média e desvio padrão da Torchvision. `run.json` registra os parâmetros, as classes em ordem de saída e a identificação do manifesto. `metrics.jsonl` registra perda e acurácia por época em treino e validação. `best.pt` guarda os pesos da época com menor perda de validação.
