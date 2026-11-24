@@ -206,3 +206,24 @@ A demonstração usa figuras sintéticas para verificar a execução. Seus pesos
 A pasta de saída deve ser nova. O comando exige pelo menos duas classes e cobertura de todas em treino e validação. As imagens de teste ficam reservadas para avaliação posterior. `auto` usa CUDA se o PyTorch estiver instalado com esse suporte e detectar uma GPU compatível. Caso contrário, usa CPU.
 
 A MobileNetV3 Small usa pesos `IMAGENET1K_V1` e treina apenas a camada linear final. A receita da etapa anterior é seguida pela padronização ImageNet dos canais com média e desvio padrão da Torchvision. `run.json` registra os parâmetros, as classes em ordem de saída e a identificação do manifesto. `metrics.jsonl` registra perda e acurácia por época em treino e validação. `best.pt` guarda os pesos da época com menor perda de validação.
+
+## Comparação com variações de treino
+
+A opção `--augment` sorteia uma rotação entre −8° e +8°, um fator de brilho entre 0,85 e 1,15 e uma escala entre 0,85 e 1,00. A rotação expande a área da foto e a escala reduz a imagem no quadro, conservando a cena inteira. O espelhamento fica desativado para preservar as assimetrias e o texto das placas. As variações só ocorrem no treino, e seus parâmetros ficam registrados em `run.json`.
+
+Na pasta `ComputerVisionPython`, compare duas execuções com o mesmo dataset, seed, dispositivo, tamanho, lote e número de épocas. O exemplo usa os dados sintéticos da demonstração e exige duas pastas de saída novas:
+
+```powershell
+$env:TORCH_HOME = Join-Path (Get-Location) 'models/torch-cache'
+$parametros = @('--demo', '--epochs', '5', '--batch-size', '2', '--size', '96', '--seed', '42', '--device', 'cpu')
+.\.venv\Scripts\python.exe -m mfi_cv.data.train_classifier @parametros --output .\models\comparacao-base
+.\.venv\Scripts\python.exe -m mfi_cv.data.train_classifier @parametros --augment --output .\models\comparacao-augment
+foreach ($pasta in 'comparacao-base', 'comparacao-augment') {
+    $melhor = Get-Content ".\models\$pasta\metrics.jsonl" |
+        ForEach-Object { ConvertFrom-Json -InputObject $_ } |
+        Sort-Object val_loss | Select-Object -First 1
+    [pscustomobject]@{ Execucao = $pasta; Epoca = $melhor.epoch; Perda = $melhor.val_loss; Acuracia = $melhor.val_accuracy }
+}
+```
+
+Verifique se os dois arquivos `run.json` registram o mesmo `manifest_sha256` e se só o segundo tem `augmentation.enabled` igual a `true`. A comparação sintética verifica o fluxo. Para medir o efeito em motores, repita com `--dataset .\dataset\classification` no lugar de `--demo` e use a mesma partição de validação para as duas execuções.

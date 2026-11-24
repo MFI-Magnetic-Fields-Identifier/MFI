@@ -1,5 +1,6 @@
 import argparse
 from array import array
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -34,11 +35,15 @@ def _letterbox(photo: Image.Image, size: int) -> Image.Image:
     return canvas
 
 
-def prepare_image(photo: Image.Image, *, size: int = DEFAULT_SIZE) -> Image.Image:
+def prepare_image(
+    photo: Image.Image, *, size: int = DEFAULT_SIZE,
+    transform: Callable[[Image.Image], Image.Image] | None = None,
+) -> Image.Image:
     """Orienta e redimensiona uma imagem RGB mantendo a cena inteira."""
     if type(size) is not int or size < 1:
         raise ValueError("O tamanho deve ser um inteiro positivo.")
-    return _letterbox(_oriented_rgb(photo), size)
+    rgb = _oriented_rgb(photo)
+    return _letterbox(transform(rgb) if transform is not None else rgb, size)
 
 
 def normalize_rgb(photo: Image.Image) -> array[float]:

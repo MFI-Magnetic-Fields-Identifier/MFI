@@ -4,6 +4,7 @@ from collections import defaultdict
 from hashlib import file_digest, sha256
 from math import isfinite
 from pathlib import Path
+from random import Random
 from tempfile import TemporaryDirectory
 
 import torch
@@ -15,6 +16,12 @@ from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
 
 from .photo_files import open_photo
 from .preprocessing import DEFAULT_SIZE, PADDING_COLOR, normalize_rgb, prepare_image
+from .training_augmentation import (
+    BRIGHTNESS_RANGE,
+    ROTATION_DEGREES,
+    SCALE_RANGE,
+    augment_training_image,
+)
 
 WEIGHTS = MobileNet_V3_Small_Weights.IMAGENET1K_V1
 
@@ -58,9 +65,12 @@ def _read_dataset(root: Path) -> tuple[list[str], dict[str, list[tuple[Path, int
 
 
 class TrainingPhotos(Dataset[tuple[Tensor, int]]):
-    def __init__(self, samples: list[tuple[Path, int]], size: int) -> None:
+    def __init__(
+        self, samples: list[tuple[Path, int]], size: int, *, augmentation_rng: Random | None = None
+    ) -> None:
         self.samples = samples
         self.size = size
+        self.augmentation_rng = augmentation_rng
         preset = WEIGHTS.transforms()
         self.mean = torch.tensor(preset.mean).view(3, 1, 1)
         self.std = torch.tensor(preset.std).view(3, 1, 1)
@@ -71,7 +81,10 @@ class TrainingPhotos(Dataset[tuple[Tensor, int]]):
     def __getitem__(self, index: int) -> tuple[Tensor, int]:
         path, label = self.samples[index]
         with open_photo(path) as original:
-            rgb = prepare_image(original, size=self.size)
+            if self.augmentation_rng is None:
+                rgb = prepare_image(original, size=self.size)
+            else:
+                rgb = augment_training_image(original, self.size, self.augmentation_rng)
         pixels = torch.frombuffer(normalize_rgb(rgb), dtype=torch.float32).view(3, self.size, self.size)
         return (pixels - self.mean) / self.std, label
 
@@ -102,7 +115,7 @@ def _epoch(
 
 def train(
     root: Path, output: Path, *, epochs: int, batch_size: int, size: int,
-    seed: int, requested_device: str, demo: bool = False,
+    seed: int, requested_device: str, demo: bool = False, augment: bool = False,
 ) -> None:
     if min(epochs, batch_size, size) < 1 or not 0 <= seed < 2**63:
         raise ValueError("Use épocas, lote e tamanho positivos e seed entre 0 e 2**63 - 1.")
@@ -116,12 +129,12 @@ def train(
     device = torch.device(requested_device)
     labels, samples, manifest_hash = _read_dataset(root.resolve())
     torch.manual_seed(seed)
-    datasets = {split: TrainingPhotos(samples[split], size) for split in ("train", "val")}
     train_loader = DataLoader(
-        datasets["train"], batch_size=batch_size, shuffle=True,
+        TrainingPhotos(samples["train"], size, augmentation_rng=Random(seed) if augment else None),
+        batch_size=batch_size, shuffle=True,
         generator=torch.Generator().manual_seed(seed),
     )
-    val_loader = DataLoader(datasets["val"], batch_size=batch_size)
+    val_loader = DataLoader(TrainingPhotos(samples["val"], size), batch_size=batch_size)
     model = mobilenet_v3_small(weights=WEIGHTS)
     model.requires_grad_(False)
     model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, len(labels))
@@ -135,6 +148,11 @@ def train(
         "seed": seed, "device": str(device), "cuda_available": has_cuda, "class_ids": labels,
         "torch_version": str(torch.__version__), "torchvision_version": str(torchvision.__version__),
         "manifest_sha256": manifest_hash, "image_counts": {key: len(value) for key, value in samples.items()},
+        "augmentation": {
+            "enabled": augment, "rotation_degrees": ROTATION_DEGREES,
+            "brightness_range": list(BRIGHTNESS_RANGE), "scale_range": list(SCALE_RANGE),
+            "horizontal_flip": False,
+        },
         "preprocessing": {
             "size": size, "exif_orientation": True, "resize": "letterbox_lanczos",
             "padding_rgb": list(PADDING_COLOR), "scale": 255, "mean": preset.mean, "std": preset.std,
@@ -198,10 +216,11 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=DEFAULT_SIZE)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    parser.add_argument("--augment", action="store_true", help="Aplica variações apenas no treino.")
     args = parser.parse_args()
     options = dict(
         epochs=args.epochs, batch_size=args.batch_size, size=args.size, seed=args.seed,
-        requested_device=args.device, demo=args.demo,
+        requested_device=args.device, demo=args.demo, augment=args.augment,
     )
     try:
         if args.demo:

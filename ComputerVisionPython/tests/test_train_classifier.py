@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
+from random import Random
 
 import pytest
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 pytest.importorskip("torchvision")
 
 from mfi_cv.data.train_classifier import TrainingPhotos, _read_dataset, make_demo_dataset
@@ -46,3 +47,15 @@ def test_rejects_invalid_training_dataset(tmp_path: Path, field: str, expected: 
 
     with pytest.raises(ValueError, match=expected):
         _read_dataset(tmp_path)
+
+
+def test_augmentation_is_opt_in_for_training_samples(tmp_path: Path) -> None:
+    make_demo_dataset(tmp_path)
+    _, samples, _ = _read_dataset(tmp_path)
+    baseline = TrainingPhotos(samples["train"], 64)
+    varied = TrainingPhotos(samples["train"], 64, augmentation_rng=Random(42))
+    validation = TrainingPhotos(samples["val"], 64)
+
+    assert baseline[0][1] == varied[0][1]
+    assert not torch.equal(baseline[0][0], varied[0][0])
+    assert torch.equal(validation[0][0], validation[0][0])
