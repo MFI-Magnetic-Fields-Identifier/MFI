@@ -128,3 +128,22 @@ engine.dispose()
 ```
 
 A saída deve mostrar os dois caminhos e, na última linha, o ID do registro da primeira foto. O SHA-256 identifica arquivos com bytes idênticos. Uma nova codificação da mesma foto pode produzir um hash diferente.
+
+## Relatório de qualidade das fotografias
+
+Na pasta `ComputerVisionPython`, execute no PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m mfi_cv.data.image_quality .\dataset\raw |
+    Set-Content -Encoding ASCII .\dataset\relatorio-qualidade.json
+Get-Content .\dataset\relatorio-qualidade.json -Raw | ConvertFrom-Json |
+    Select-Object -ExpandProperty files |
+    Where-Object { $_.issues.Count -gt 0 } |
+    Format-Table path, width, height, sharpness, issues -AutoSize
+```
+
+O relatório tem caminhos relativos à pasta analisada. Abra os arquivos sinalizados para revisão visual. `invalid_image` indica conteúdo corrompido ou incompatível com os formatos estáticos aceitos. `unreadable` indica falha na leitura dos bytes, e `duplicate` indica conteúdo idêntico por SHA-256. Todos os caminhos de uma duplicata também aparecem em `duplicate_groups`.
+
+A resolução recebe `low_resolution` quando o menor lado tem menos que `--min-side` pixels (padrão 640). A nitidez recebe `low_sharpness` quando a variância do Laplaciano fica abaixo de `--min-sharpness` (padrão 100). O Laplaciano mede diferenças locais de intensidade. Sua variância costuma cair quando o desfoque suaviza bordas. A métrica usa tons de cinza, limita o maior lado a 512 pixels sem ampliar e registra `null` se a imagem resultante for pequena demais para a janela de 3 × 3 pixels.
+
+Os limites são iniciais e servem para triagem. Textura, ruído e iluminação também afetam a métrica. O relatório preserva as fotos e seus status no catálogo. Pastas e arquivos iniciados por ponto, incluindo os temporários do importador, são ignorados. Rode a análise com a pasta estável para reproduzir o resultado.
