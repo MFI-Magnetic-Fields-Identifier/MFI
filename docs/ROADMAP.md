@@ -2,7 +2,7 @@
 
 ## 1. Ponto de partida
 
-O último marco de produção de código antes da mudança de arquitetura foi a etapa 6.2 do plano anterior, registrada em `9783da8`. O cliente C# e sua demonstração ficam em `Assets/Scripts/ComputerVision/` no histórico. A etapa seguinte de câmera AR ficou sem implementação. A aplicação React e o simulador em TypeScript ainda não existem no repositório.
+O último marco de produção de código antes da mudança de arquitetura foi a etapa 6.2 do plano anterior, registrada em `9783da8`. O cliente C# e sua demonstração ficam em `Assets/Scripts/ComputerVision/` no histórico. A etapa seguinte de câmera AR ficou sem implementação. A aplicação React já tem seleção manual em `apps/web/`. O simulador em TypeScript está planejado.
 
 | Etapas concluídas | Funcionalidade preservada |
 |---|---|
@@ -12,8 +12,9 @@ O último marco de produção de código antes da mudança de arquitetura foi a 
 | 5.1–5.2 | Avaliação em partição reservada e análise de erros por classe e condição de captura. |
 | 6.1 | FastAPI com `GET /health`, `GET /models`, `GET /motors/{motor_id}` e `POST /predict`. |
 | 6.2 Web | `GET /motors` lista os modelos comerciais cadastrados para seleção manual, sem exigir checkpoint. |
+| 6.3 Web | Tela de seleção manual com perfis JSON de demonstração, disponível com o backend desligado. |
 
-O módulo Python continua em `ComputerVisionPython/`. Seus comandos, testes, migrações e artefatos locais já usam esse caminho. Uma futura mudança para `services/computer-vision/` poderá ser avaliada quando houver necessidade concreta. A pasta `apps/web/` é o destino sugerido para o frontend quando ele for criado.
+O módulo Python continua em `ComputerVisionPython/`. Seus comandos, testes, migrações e artefatos locais já usam esse caminho. Uma futura mudança para `services/computer-vision/` poderá ser avaliada quando houver necessidade concreta.
 
 ## 2. Arquitetura aprovada
 
@@ -46,8 +47,7 @@ Cada linha é uma entrega independente. Verifique o estado do repositório antes
 
 | Microetapa | Entrega e critério de conclusão |
 |---|---|
-| **6.3 Web — Criar a seleção manual de perfis** | Preparar a base React, TypeScript e Vite necessária para abrir uma tela de seleção que carregue perfis JSON de demonstração sem depender do backend. |
-| 6.4 Web — Enviar fotografia e apresentar candidatos | Reutilizar `POST /predict`. Testar seleção de arquivo, estado de processamento, erros e exibição de IDs, pontuações e necessidade de confirmação. Avaliar proxy de desenvolvimento ou CORS conforme a execução escolhida. |
+| **6.4 Web — Enviar fotografia e apresentar candidatos** | Reutilizar `POST /predict`. Testar seleção de arquivo, estado de processamento, erros e exibição de IDs, pontuações e necessidade de confirmação. Avaliar proxy de desenvolvimento ou CORS conforme a execução escolhida. |
 | 6.5 Web — Confirmar identificação e carregar perfil | Integrar a lista do catálogo por `GET /motors` e consultar `GET /motors/{id}` após seleção de um registro ou confirmação de um candidato. Tratar IDs ausentes e resultados desconhecidos. A seleção manual por JSON continua disponível sem a API. |
 
 ### Fase 7 — Simulação eletromagnética no navegador
@@ -76,4 +76,4 @@ A interface deve identificar o campo do modelo analítico e a escala relativa. S
 
 ## 4. Próxima etapa autorizável
 
-**6.3 Web — Criar a seleção manual de perfis.** A primeira tela React deve carregar perfis JSON identificados como demonstração e permitir selecionar um deles com o backend desligado. O upload e a simulação entram em microetapas próprias.
+**6.4 Web — Enviar fotografia e apresentar candidatos.** Integrar a seleção de um arquivo à rota real `POST /predict` e exibir seus estados e pontuações. A confirmação e a consulta de detalhes entram na microetapa seguinte.
