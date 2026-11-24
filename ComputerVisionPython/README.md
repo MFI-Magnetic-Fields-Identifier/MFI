@@ -282,3 +282,30 @@ $analise.by_model | ConvertTo-Json -Depth 8
 Para analisar fotos reais, use `--dataset .\dataset\classification` no lugar de `--demo`, com o checkpoint treinado no manifesto correspondente. Cada erro Top-1 ou pedido de revisão fica em `by_model`, com o caminho relativo ao dataset, os candidatos, o status e a condição registrada. Quando há um exemplo da classe predita na partição de teste, o relatório fornece seu caminho para comparação visual com a foto confundida. Ramos sem ocorrências podem ficar vazios.
 
 `by_angle` agrupa ângulos em intervalos de 90° e usa `unknown` quando o manifesto não informa o ângulo. Novas exportações incluem o ângulo disponível no catálogo. Preserve o manifesto original ao analisar um checkpoint existente. `by_brightness` usa o brilho médio em tons de cinza, com as faixas abaixo de 64, de 64 até menos de 192 e a partir de 192. Compare os erros junto das contagens de imagens. O brilho médio também depende da cor do motor, do fundo e da exposição, e a análise de `unknown` nestes dados cobre fotos de classes conhecidas.
+
+## API de inferência local
+
+Na pasta `ComputerVisionPython`, instale os extras, aplique as migrações e inicie o servidor no PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e '.[api,training,test]'
+.\.venv\Scripts\python.exe -m alembic upgrade head
+$env:MFI_CHECKPOINT = (Resolve-Path .\models\demo-v1\best.pt).Path
+.\.venv\Scripts\python.exe -m uvicorn mfi_cv.api:app --host 127.0.0.1 --port 8000
+```
+
+O exemplo usa os pesos sintéticos da etapa 4.1 e o catálogo definido por `MFI_DATABASE_URL`, ou o SQLite local quando a variável estiver ausente. Em outro PowerShell, na mesma pasta, consulte a API e envie uma imagem sintética:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod http://127.0.0.1:8000/models
+$foto = Get-ChildItem .\dataset\raw -Recurse -Filter *.png -File | Select-Object -First 1 -ExpandProperty FullName
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType 'image/png' -InFile $foto |
+    ConvertTo-Json -Depth 4
+```
+
+`GET /health` retorna 200 quando o classificador e o catálogo estão disponíveis, ou 503 com o estado de ambos. `GET /models` lista os IDs de classe do checkpoint e indica se ele é sintético. `GET /motors/{motor_id}` consulta as especificações do modelo comercial cadastrado e retorna 404 para um ID ausente. Para montar a URL, codifique o ID com `[uri]::EscapeDataString($id)`.
+
+`POST /predict` recebe os bytes da foto no corpo, com `Content-Type` igual a `image/jpeg`, `image/png` ou `image/webp`. O limite é 8 MiB e 24 megapixels. O JSON de sucesso contém `candidates` e `status`. Respostas de erro do endpoint usam `detail`, incluindo 400 para foto inválida, 413 para tamanho excessivo, 415 para tipo incompatível e 503 quando o classificador está indisponível.
+
+Com o servidor ativo, a documentação interativa fica em `http://127.0.0.1:8000/docs` e o contrato OpenAPI em `http://127.0.0.1:8000/openapi.json`.

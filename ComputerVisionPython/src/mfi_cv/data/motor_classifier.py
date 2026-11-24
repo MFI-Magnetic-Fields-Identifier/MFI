@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+from contextlib import ExitStack
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
@@ -8,6 +9,7 @@ from pickle import UnpicklingError
 from typing import Literal, TypedDict
 
 import torch
+from PIL import Image
 
 from .classifier_model import ARCHITECTURE, build_classifier, standardize_image
 from .photo_files import open_photo
@@ -109,17 +111,20 @@ class MotorClassifier:
         self.std = torch.tensor(std, dtype=torch.float32).view(3, 1, 1)
         self.thresholds = thresholds
 
-    @torch.inference_mode()
     def predict(self, image: str | Path, *, top_k: int = 3) -> Prediction:
+        path = Path(image)
+        with ExitStack() as resources:
+            try:
+                photo = resources.enter_context(open_photo(path))
+            except (OSError, ValueError) as error:
+                raise InvalidPhotoError(f"Fotografia inválida: {path}. {error}") from error
+            return self.predict_photo(photo, top_k=top_k)
+
+    @torch.inference_mode()
+    def predict_photo(self, photo: Image.Image, *, top_k: int = 3) -> Prediction:
         if type(top_k) is not int or top_k < 1:
             raise ValueError("Top-K deve ser um inteiro positivo.")
-        path = Path(image)
-        try:
-            with open_photo(path) as photo:
-                rgb = prepare_image(photo, size=self.size)
-        except (OSError, ValueError) as error:
-            raise InvalidPhotoError(f"Fotografia inválida: {path}. {error}") from error
-
+        rgb = prepare_image(photo, size=self.size)
         tensor = standardize_image(rgb, self.mean, self.std)
         scores = self.model(tensor.unsqueeze(0)).softmax(dim=1)[0].tolist()
         if not all(isfinite(score) for score in scores):
