@@ -170,3 +170,17 @@ Para verificar o fluxo com dados sintéticos, sem alterar o catálogo local, exe
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q tests/test_classification_dataset.py
 ```
+
+## Pré-processamento e comparação visual
+
+Na pasta `ComputerVisionPython`, selecione as fotos a processar e informe uma pasta de saída nova. O exemplo usa até três arquivos do armazenamento local:
+
+```powershell
+$fotos = @(Get-ChildItem .\dataset\raw -Recurse -File -Include *.jpg,*.jpeg,*.png,*.webp |
+    Sort-Object FullName | Select-Object -First 3 -ExpandProperty FullName)
+.\.venv\Scripts\python.exe -m mfi_cv.data.preprocessing --output .\dataset\processed --size 224 --compare-contrast @fotos
+```
+
+Abra os arquivos `*-comparison.png` para ver lado a lado o original orientado, o redimensionado e, se solicitado, a comparação experimental de contraste. Os arquivos `*-processed.png` contêm a imagem RGB redimensionada. A operação preserva as proporções, centraliza a imagem com preenchimento cinza e corrige a orientação EXIF. Os arquivos de origem ficam disponíveis para revisão.
+
+A receita inicial para treino e inferência é a mesma. Use `prepare_image` para orientar, converter para RGB e redimensionar para o tamanho registrado com o modelo, e `normalize_rgb` para dividir os canais por 255. O resultado é um buffer contíguo de `float32` na ordem `(3, altura, largura)`. O PNG conserva os valores inteiros de 0 a 255 para inspeção. O ajuste experimental de contraste atua apenas na luminância antes do preenchimento e fica fora dessa receita, pois pode alterar detalhes visuais. Ao escolher o classificador, valide a transformação nativa da biblioteca e configure uma única passagem de redimensionamento e normalização, com a mesma receita na avaliação e na inferência.
