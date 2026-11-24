@@ -309,3 +309,21 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType '
 `POST /predict` recebe os bytes da foto no corpo, com `Content-Type` igual a `image/jpeg`, `image/png` ou `image/webp`. O limite é 8 MiB e 24 megapixels. O JSON de sucesso contém `candidates` e `status`. Respostas de erro do endpoint usam `detail`, incluindo 400 para foto inválida, 413 para tamanho excessivo, 415 para tipo incompatível e 503 quando o classificador está indisponível.
 
 Com o servidor ativo, a documentação interativa fica em `http://127.0.0.1:8000/docs` e o contrato OpenAPI em `http://127.0.0.1:8000/openapi.json`.
+
+## Enviar uma foto de teste pelo Unity
+
+Inicie a API em `127.0.0.1:8000` conforme a seção anterior. Em outro PowerShell, na raiz do projeto Unity, copie um PNG sintético para um asset de teste com a extensão `.bytes`. O Unity importa esse arquivo como `TextAsset` e mantém os bytes originais.
+
+```powershell
+$foto = Get-ChildItem .\ComputerVisionPython\dataset\raw -Recurse -Filter *.png -File |
+    Select-Object -First 1 -ExpandProperty FullName
+Copy-Item -LiteralPath $foto -Destination .\Assets\MfiPredictionDemo.bytes
+```
+
+1. Abra uma cena de teste no Unity 6 e crie um GameObject vazio.
+2. Adicione `MotorPredictionDemo`. No Inspector, atribua `MfiPredictionDemo.bytes` a **Test Photo**, mantenha **Content Type** como `image/png` e **Api Base Url** como `http://127.0.0.1:8000`.
+3. Se o Editor bloquear HTTP local, permita HTTP para desenvolvimento em **Player Settings → Other Settings → Configuration → Allow downloads over HTTP** no projeto de teste.
+4. Entre em Play Mode. O Console mostra o processamento, o estado retornado e a pontuação de cada candidato. Com o checkpoint sintético, os IDs começam com `demo-`.
+5. Para verificar falhas, pare a API com Ctrl+C e use **Enviar foto de teste** no menu de contexto do componente, ainda em Play Mode. O Console deve informar falha de comunicação. Com a API ativa, enviar o PNG com **Content Type** igual a `image/jpeg` deve produzir HTTP 415.
+
+O cliente usa `UnityWebRequest` com corpo binário e timeout padrão de 15 segundos. Outros componentes podem chamar `MotorPredictionClient.Predict` com os bytes de uma foto, seu tipo de conteúdo e callbacks de sucesso e erro.
