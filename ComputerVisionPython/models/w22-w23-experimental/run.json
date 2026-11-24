@@ -1,0 +1,45 @@
+{
+  "demo": true,
+  "experimental": true,
+  "validation": null,
+  "test": null,
+  "architecture": "mobilenet_v3_small",
+  "initial_weights": "IMAGENET1K_V1",
+  "class_ids": [
+    "weg-w22",
+    "weg-w23"
+  ],
+  "manifest_sha256": "5f94d31cf0c10fde50c562fe00a90d3497586e385e24c153150e0d8edb1c5fd2",
+  "epochs": 10,
+  "batch_size": 4,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "device": "cpu",
+  "torch_version": "2.14.0+cpu",
+  "torchvision_version": "0.29.2+cpu",
+  "image_counts": {
+    "weg-w22": 14,
+    "weg-w23": 5
+  },
+  "preprocessing": {
+    "size": 224,
+    "exif_orientation": true,
+    "resize": "letterbox_lanczos",
+    "padding_rgb": [
+      114,
+      114,
+      114
+    ],
+    "scale": 255,
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  }
+}

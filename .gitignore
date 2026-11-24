@@ -25,6 +25,9 @@ __pycache__/
 .venv/
 *.pyc
 
+# Fotografias locais do projeto
+/fotos/
+
 # Segredos
 .env
 .env.*
