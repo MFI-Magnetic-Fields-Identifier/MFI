@@ -12,10 +12,11 @@ import torchvision
 from PIL import Image, ImageDraw
 from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
-from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
+from torchvision.models import MobileNet_V3_Small_Weights
 
+from .classifier_model import ARCHITECTURE, build_classifier, standardize_image
 from .photo_files import open_photo
-from .preprocessing import DEFAULT_SIZE, PADDING_COLOR, normalize_rgb, prepare_image
+from .preprocessing import DEFAULT_SIZE, PADDING_COLOR, prepare_image
 from .training_augmentation import (
     BRIGHTNESS_RANGE,
     ROTATION_DEGREES,
@@ -85,8 +86,7 @@ class TrainingPhotos(Dataset[tuple[Tensor, int]]):
                 rgb = prepare_image(original, size=self.size)
             else:
                 rgb = augment_training_image(original, self.size, self.augmentation_rng)
-        pixels = torch.frombuffer(normalize_rgb(rgb), dtype=torch.float32).view(3, self.size, self.size)
-        return (pixels - self.mean) / self.std, label
+        return standardize_image(rgb, self.mean, self.std), label
 
 
 def _epoch(
@@ -135,15 +135,15 @@ def train(
         generator=torch.Generator().manual_seed(seed),
     )
     val_loader = DataLoader(TrainingPhotos(samples["val"], size), batch_size=batch_size)
-    model = mobilenet_v3_small(weights=WEIGHTS)
+    model = build_classifier(len(labels), weights=WEIGHTS)
     model.requires_grad_(False)
-    model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, len(labels))
+    model.classifier[-1].requires_grad_(True)
     model.to(device).eval()
     learning_rate = 0.001
     optimizer = torch.optim.Adam(model.classifier[-1].parameters(), lr=learning_rate)
     preset = WEIGHTS.transforms()
     config = {
-        "demo": demo, "architecture": "mobilenet_v3_small", "initial_weights": WEIGHTS.name,
+        "demo": demo, "architecture": ARCHITECTURE, "initial_weights": WEIGHTS.name,
         "epochs": epochs, "batch_size": batch_size, "learning_rate": learning_rate,
         "seed": seed, "device": str(device), "cuda_available": has_cuda, "class_ids": labels,
         "torch_version": str(torch.__version__), "torchvision_version": str(torchvision.__version__),

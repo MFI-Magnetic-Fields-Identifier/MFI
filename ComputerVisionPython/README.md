@@ -227,3 +227,29 @@ foreach ($pasta in 'comparacao-base', 'comparacao-augment') {
 ```
 
 Verifique se os dois arquivos `run.json` registram o mesmo `manifest_sha256` e se só o segundo tem `augmentation.enabled` igual a `true`. A comparação sintética verifica o fluxo. Para medir o efeito em motores, repita com `--dataset .\dataset\classification` no lugar de `--demo` e use a mesma partição de validação para as duas execuções.
+
+## Identificar candidatos a partir de uma foto
+
+Na pasta `ComputerVisionPython`, use o extra de treinamento já instalado e um `best.pt` gerado pelo MFI. Este exemplo usa o checkpoint e uma figura sintética da demonstração:
+
+```powershell
+$foto = Get-ChildItem .\dataset\raw -Recurse -Filter *.png -File | Select-Object -First 1 -ExpandProperty FullName
+.\.venv\Scripts\python.exe -m mfi_cv.data.motor_classifier $foto --checkpoint .\models\demo-v1\best.pt --top-k 2
+```
+
+Em Python, carregue o checkpoint uma vez e reutilize o classificador:
+
+```python
+from mfi_cv.data.motor_classifier import MotorClassifier
+
+classifier = MotorClassifier("models/baseline-v1/best.pt")
+prediction = classifier.predict("motor.jpg", top_k=3)
+```
+
+A saída inclui `candidates`, em ordem decrescente de pontuação, e `status`. As pontuações vêm do softmax e ainda precisam de calibração para interpretação probabilística. Os limiares iniciais são provisórios:
+
+- `unknown` quando a primeira pontuação fica abaixo de `--reject-below` (padrão 0,60).
+- `accepted` quando a primeira pontuação alcança `--accept-at` (padrão 0,85) e a distância para a segunda alcança `--min-margin` (padrão 0,15).
+- `needs_confirmation` nos demais casos. Confira os candidatos ou a placa do motor.
+
+O status considera as duas primeiras pontuações mesmo com `--top-k 1`. Uma imagem ilegível gera `InvalidPhotoError`. Um checkpoint ausente ou incompatível gera `ModelUnavailableError`. No comando, esses erros retornam código 1, e checkpoints sintéticos exibem um aviso separado do JSON.
