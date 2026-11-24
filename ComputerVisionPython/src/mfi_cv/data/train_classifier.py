@@ -1,7 +1,5 @@
 import argparse
 import json
-from collections import defaultdict
-from hashlib import file_digest, sha256
 from math import isfinite
 from pathlib import Path
 from random import Random
@@ -9,11 +7,11 @@ from tempfile import TemporaryDirectory
 
 import torch
 import torchvision
-from PIL import Image, ImageDraw
 from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.models import MobileNet_V3_Small_Weights
 
+from .classifier_dataset import make_demo_dataset, read_dataset
 from .classifier_model import ARCHITECTURE, build_classifier, standardize_image
 from .photo_files import open_photo
 from .preprocessing import DEFAULT_SIZE, PADDING_COLOR, prepare_image
@@ -25,44 +23,6 @@ from .training_augmentation import (
 )
 
 WEIGHTS = MobileNet_V3_Small_Weights.IMAGENET1K_V1
-
-
-def _read_dataset(root: Path) -> tuple[list[str], dict[str, list[tuple[Path, int]]], str]:
-    manifest_bytes = (root / "manifest.json").read_bytes()
-    manifest = json.loads(manifest_bytes)
-    labels = sorted(manifest["classes"])
-    if len(labels) < 2:
-        raise ValueError("O treinamento requer ao menos duas classes.")
-    label_ids = {name: index for index, name in enumerate(labels)}
-    samples: dict[str, list[tuple[Path, int]]] = {"train": [], "val": [], "test": []}
-    split_by_link: dict[tuple[str, str | int], str] = {}
-    counts: dict[str, set[int]] = defaultdict(set)
-    for entry in manifest["images"]:
-        split, model = entry["split"], entry["model_id"]
-        label = label_ids[model]
-        if split not in samples:
-            raise ValueError(f"Partição inválida: {split}")
-        expected = (split, manifest["classes"][model]["directory"])
-        relative = Path(entry["path"])
-        path = (root / relative).resolve()
-        if relative.parts[:2] != expected or len(relative.parts) != 3 or not path.is_relative_to(root):
-            raise ValueError(f"Caminho incompatível com o manifesto: {relative}")
-        for key in ("unit_id", "session_id", "sha256", "group_id"):
-            link = (key, entry[key])
-            if split_by_link.setdefault(link, split) != split:
-                raise ValueError(f"Vazamento entre partições no campo {key}: {entry[key]}")
-        if split != "test":
-            with path.open("rb") as image_file:
-                digest = file_digest(image_file, "sha256").hexdigest()
-            if digest != entry["sha256"]:
-                raise ValueError(f"SHA-256 divergente no dataset: {relative}")
-        samples[split].append((path, label))
-        counts[split].add(label)
-    for split in ("train", "val"):
-        missing = [name for name, label in label_ids.items() if label not in counts[split]]
-        if missing:
-            raise ValueError(f"Classes sem imagens em {split}: {', '.join(missing)}.")
-    return labels, samples, sha256(manifest_bytes).hexdigest()
 
 
 class TrainingPhotos(Dataset[tuple[Tensor, int]]):
@@ -127,7 +87,7 @@ def train(
     if requested_device == "auto":
         requested_device = "cuda" if has_cuda else "cpu"
     device = torch.device(requested_device)
-    labels, samples, manifest_hash = _read_dataset(root.resolve())
+    labels, samples, manifest_hash = read_dataset(root.resolve())
     torch.manual_seed(seed)
     train_loader = DataLoader(
         TrainingPhotos(samples["train"], size, augmentation_rng=Random(seed) if augment else None),
@@ -180,29 +140,6 @@ def train(
                 temporary_weights = output / "best.pt.tmp"
                 torch.save({"state_dict": model.state_dict(), "config": config, "metrics": metrics}, temporary_weights)
                 temporary_weights.replace(output / "best.pt")
-
-
-def make_demo_dataset(root: Path) -> None:
-    """Cria figuras sintéticas independentes para testar a execução do treino."""
-    classes = {"demo-retangulo": {"directory": "retangulo"}, "demo-elipse": {"directory": "elipse"}}
-    images = []
-    for split_index, split in enumerate(("train", "val", "test")):
-        for label_index, (label, info) in enumerate(classes.items()):
-            relative = Path(split, info["directory"], "demo.png")
-            path = root / relative
-            path.parent.mkdir(parents=True)
-            photo = Image.new("RGB", (120, 80), (30 + 20 * split_index, 40, 50))
-            draw = ImageDraw.Draw(photo)
-            shape = draw.rectangle if label_index == 0 else draw.ellipse
-            shape((18 + split_index * 4, 16, 100, 65), fill="#dfd4ab")
-            photo.save(path)
-            example_id = f"{split}-{label}"
-            images.append({
-                "split": split, "model_id": label, "path": relative.as_posix(),
-                "unit_id": example_id, "session_id": example_id, "group_id": example_id,
-                "sha256": sha256(path.read_bytes()).hexdigest(),
-            })
-    (root / "manifest.json").write_text(json.dumps({"classes": classes, "images": images}), encoding="utf-8")
 
 
 def main() -> None:

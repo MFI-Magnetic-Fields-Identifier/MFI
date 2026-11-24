@@ -253,3 +253,16 @@ A saída inclui `candidates`, em ordem decrescente de pontuação, e `status`. A
 - `needs_confirmation` nos demais casos. Confira os candidatos ou a placa do motor.
 
 O status considera as duas primeiras pontuações mesmo com `--top-k 1`. Uma imagem ilegível gera `InvalidPhotoError`. Um checkpoint ausente ou incompatível gera `ModelUnavailableError`. No comando, esses erros retornam código 1, e checkpoints sintéticos exibem um aviso separado do JSON.
+
+## Avaliação no conjunto de teste
+
+Na pasta `ComputerVisionPython`, com o extra de treinamento instalado, avalie o checkpoint sintético da etapa anterior:
+
+```powershell
+.\.venv\Scripts\python.exe -m mfi_cv.data.evaluate_classifier --demo --checkpoint .\models\demo-v1\best.pt --output .\models\demo-v1\avaliacao.json
+Get-Content .\models\demo-v1\avaliacao.json -Raw -Encoding UTF8
+```
+
+Para avaliar um checkpoint real, substitua `--demo` por `--dataset .\dataset\classification` e indique o checkpoint correspondente. O avaliador confere a identidade do manifesto usado no treino, a separação por exemplar, sessão, grupo e hash e o SHA-256 das fotos de teste. O arquivo de saída deve ser novo.
+
+O relatório inclui acurácia Top-1 e Top-5 quando há pelo menos cinco classes, além de precisão, recall e F1 por modelo e suas médias macro quando todas as classes têm fotos de teste. As linhas da matriz de confusão representam classes reais e as colunas, classes preditas. As métricas de classificação usam a ordem das pontuações independentemente do status de confirmação. O tempo por foto inclui leitura, pré-processamento e previsão em CPU, incluindo a primeira chamada. Os resultados sintéticos verificam a execução e ficam identificados no relatório.

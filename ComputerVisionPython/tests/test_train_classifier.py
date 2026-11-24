@@ -7,7 +7,8 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("torchvision")
 
-from mfi_cv.data.train_classifier import TrainingPhotos, _read_dataset, make_demo_dataset
+from mfi_cv.data.classifier_dataset import make_demo_dataset, read_dataset
+from mfi_cv.data.train_classifier import TrainingPhotos
 
 
 def test_uses_manifest_labels_and_test_images_stay_unread(tmp_path: Path) -> None:
@@ -15,7 +16,7 @@ def test_uses_manifest_labels_and_test_images_stay_unread(tmp_path: Path) -> Non
     for path in (tmp_path / "test").rglob("*.png"):
         path.unlink()
 
-    labels, samples, digest = _read_dataset(tmp_path)
+    labels, samples, digest = read_dataset(tmp_path)
 
     assert labels == ["demo-elipse", "demo-retangulo"]
     assert {split: len(items) for split, items in samples.items()} == {"train": 2, "val": 2, "test": 2}
@@ -46,12 +47,12 @@ def test_rejects_invalid_training_dataset(tmp_path: Path, field: str, expected: 
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(ValueError, match=expected):
-        _read_dataset(tmp_path)
+        read_dataset(tmp_path)
 
 
 def test_augmentation_is_opt_in_for_training_samples(tmp_path: Path) -> None:
     make_demo_dataset(tmp_path)
-    _, samples, _ = _read_dataset(tmp_path)
+    _, samples, _ = read_dataset(tmp_path)
     baseline = TrainingPhotos(samples["train"], 64)
     varied = TrainingPhotos(samples["train"], 64, augmentation_rng=Random(42))
     validation = TrainingPhotos(samples["val"], 64)

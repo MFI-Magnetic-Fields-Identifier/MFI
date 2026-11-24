@@ -103,6 +103,7 @@ class MotorClassifier:
         self.model = model.eval()
         self.class_ids = tuple(labels)
         self.is_demo = config.get("demo") is True
+        self.manifest_sha256: str | None = config.get("manifest_sha256")
         self.size = size
         self.mean = torch.tensor(mean, dtype=torch.float32).view(3, 1, 1)
         self.std = torch.tensor(std, dtype=torch.float32).view(3, 1, 1)
