@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from re import fullmatch
 
 
 def _require_text(value: str, field_name: str) -> None:
@@ -70,6 +71,8 @@ class MotorImage:
     registered_at: datetime
     capture_angle_deg: float | None = None
     validation_status: ValidationStatus = ValidationStatus.PENDING
+    sha256: str | None = None
+    original_filename: str | None = None
 
     def __post_init__(self) -> None:
         _require_text(self.image_id, "image_id")
@@ -89,6 +92,12 @@ class MotorImage:
             raise ValueError("capture_angle_deg deve estar no intervalo [0, 360).")
         if not isinstance(self.validation_status, ValidationStatus):
             raise ValueError("validation_status deve ser um ValidationStatus.")
+        if self.sha256 is not None and (
+            not isinstance(self.sha256, str) or not fullmatch(r"[0-9a-f]{64}", self.sha256)
+        ):
+            raise ValueError("sha256 deve conter 64 caracteres hexadecimais minúsculos.")
+        if self.original_filename is not None:
+            _require_text(self.original_filename, "original_filename")
 
     @property
     def model_id(self) -> str:

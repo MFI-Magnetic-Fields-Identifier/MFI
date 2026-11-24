@@ -78,3 +78,53 @@ Instale o driver opcional, configure `MFI_DATABASE_URL` no ambiente da sessão e
 $env:MFI_DATABASE_URL = 'postgresql+psycopg://usuario:senha@localhost:5432/mfi'
 .\.venv\Scripts\python.exe -m alembic upgrade head
 ```
+
+## Importação de fotografias
+
+Na pasta `ComputerVisionPython`, instale o pacote atualizado e aplique a migração conforme a seção **Persistência local com SQLite**. A revisão atual deve ser `0002_image_import`.
+
+O importador aceita imagens estáticas JPEG, PNG e WebP e identifica o formato pelo conteúdo. A foto original é copiada para `dataset/raw/<prefixo-do-hash>/<sha256>.<extensão>`. O caminho registrado é relativo a `dataset/raw`, ou à pasta passada em `storage_root`. Use a mesma pasta de armazenamento para as importações de um catálogo.
+
+Execute esta demonstração no PowerShell. Ela gera dois arquivos sintéticos, importa ambos e tenta importar o primeiro novamente:
+
+```powershell
+@'
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from uuid import uuid4
+from PIL import Image
+from mfi_cv.data import CaptureSession, MotorModel, MotorUnit
+from mfi_cv.data.database import create_database_engine
+from mfi_cv.data.image_import import DuplicateImageError, import_photo
+from mfi_cv.data.repository import MotorRepository
+
+tag = uuid4().hex
+model = MotorModel(f"modelo-{tag}", "Fabricante ficticio", "Linha ficticia",
+                   "Modelo ficticio", "Fonte ficticia")
+unit = MotorUnit(f"exemplar-{tag}", model)
+session = CaptureSession(f"sessao-{tag}")
+engine = create_database_engine()
+with engine.begin() as connection:
+    repository = MotorRepository(connection)
+    repository.add_model(model)
+    repository.add_unit(unit)
+    repository.add_session(session)
+
+metadata = dict(unit_id=unit.unit_id, session_id=session.session_id,
+                origin="Imagem sintetica de demonstracao", capture_angle_deg=45)
+with TemporaryDirectory() as temp:
+    photo = Image.frombytes("RGB", (8, 8), bytes.fromhex(tag) * 12)
+    files = [Path(temp) / "demo.png", Path(temp) / "demo.jpg"]
+    for source in files:
+        photo.save(source)
+        imported = import_photo(engine, source, **metadata)
+        print(imported.original_filename, Path("dataset/raw") / imported.path)
+    try:
+        import_photo(engine, files[0], **metadata)
+    except DuplicateImageError as error:
+        print("Duplicata da imagem", error.image_id)
+engine.dispose()
+'@ | .\.venv\Scripts\python.exe -
+```
+
+A saída deve mostrar os dois caminhos e, na última linha, o ID do registro da primeira foto. O SHA-256 identifica arquivos com bytes idênticos. Uma nova codificação da mesma foto pode produzir um hash diferente.

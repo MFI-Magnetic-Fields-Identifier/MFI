@@ -78,7 +78,13 @@ class MotorRepository:
             registered_at=image.registered_at.astimezone(UTC),
             capture_angle_deg=image.capture_angle_deg,
             validation_status=image.validation_status.value,
+            sha256=image.sha256,
+            original_filename=image.original_filename,
         ))
+
+    def find_image_id_by_sha256(self, sha256: str) -> str | None:
+        statement = select(motor_images.c.image_id).where(motor_images.c.sha256 == sha256)
+        return self.connection.execute(statement).scalar_one_or_none()
 
     def get_image(self, image_id: str) -> MotorImage | None:
         statement = (
@@ -103,4 +109,6 @@ class MotorRepository:
             registered_at=registered_at.astimezone(UTC),
             capture_angle_deg=row["capture_angle_deg"],
             validation_status=ValidationStatus(row["validation_status"]),
+            sha256=row["sha256"],
+            original_filename=row["original_filename"],
         )
